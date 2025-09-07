@@ -410,11 +410,29 @@ const getWebsiteByCustomDomain = async (req, res) => {
       });
     }
 
-    // Find website by custom domain
-    const website = await Website.findOne({
+    // Find website by custom domain (handle both www and non-www versions)
+    let website = await Website.findOne({
       'data.customDomain': domain,
       isPublished: true // Only return published websites
     });
+
+    // If not found and domain starts with www, try without www
+    if (!website && domain.startsWith('www.')) {
+      const domainWithoutWww = domain.substring(4); // Remove 'www.'
+      website = await Website.findOne({
+        'data.customDomain': domainWithoutWww,
+        isPublished: true
+      });
+    }
+
+    // If not found and domain doesn't start with www, try with www
+    if (!website && !domain.startsWith('www.')) {
+      const domainWithWww = `www.${domain}`;
+      website = await Website.findOne({
+        'data.customDomain': domainWithWww,
+        isPublished: true
+      });
+    }
 
     console.log('📊 Backend: Website found:', !!website);
 
@@ -457,15 +475,27 @@ const setCustomDomain = async (req, res) => {
       });
     }
 
-    // Check if domain is already in use
+    // Check if domain is already in use (handle both www and non-www versions)
+    const domainVariations = [customDomain];
+    
+    // Add www version if domain doesn't start with www
+    if (!customDomain.startsWith('www.')) {
+      domainVariations.push(`www.${customDomain}`);
+    }
+    
+    // Add non-www version if domain starts with www
+    if (customDomain.startsWith('www.')) {
+      domainVariations.push(customDomain.substring(4));
+    }
+
     const existingWebsite = await Website.findOne({
-      'data.customDomain': customDomain,
+      'data.customDomain': { $in: domainVariations },
       _id: { $ne: id }
     });
 
     if (existingWebsite) {
       return res.status(400).json({
-        message: 'This domain is already in use by another website'
+        message: 'This domain (or its www/non-www version) is already in use by another website'
       });
     }
 
