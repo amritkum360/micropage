@@ -17,6 +17,8 @@ const authRoutes = require('./routes/auth');
 const websiteRoutes = require('./routes/websites');
 const subscriptionRoutes = require('./routes/subscriptions');
 const domainRoutes = require('./routes/domains');
+const aiRoutes = require('./routes/ai');
+
 
 const app = express();
 
@@ -437,11 +439,13 @@ app.get('/api/razorpay/payments', async (req, res) => {
   }
 });
 
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/websites', websiteRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/domains', domainRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

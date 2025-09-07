@@ -9,6 +9,7 @@ const {
   publishWebsite, 
   unpublishWebsite,
   getPublishedWebsite,
+  getWebsiteBySubdomain,
   checkDomainDNS
 } = require('../controllers/websiteController');
 const { authenticateToken } = require('../middleware/auth');
@@ -21,6 +22,9 @@ router.get('/', authenticateToken, getWebsites);
 
 // Get Published Website (Public) - This must come before /:id routes
 router.get('/published/:id', getPublishedWebsite);
+
+// Get Website by Subdomain (Public) - This must come before /:id routes
+router.get('/subdomain/:subdomain', getWebsiteBySubdomain);
 
 
 

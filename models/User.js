@@ -45,7 +45,20 @@ const userSchema = new mongoose.Schema({
     data: Object,
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
-  }]
+  }],
+  onboardingCompleted: {
+    type: Boolean,
+    default: false
+  },
+  onboardingData: {
+    websiteName: String,
+    subdomain: String,
+    businessDescription: String,
+    selectedSections: [String],
+    aiGeneratedContent: Object,
+    selectedTheme: String,
+    completedAt: Date
+  }
 });
 
 module.exports = mongoose.model('User', userSchema);

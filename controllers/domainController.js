@@ -1,4 +1,5 @@
 const Domain = require('../models/Domain');
+const Website = require('../models/Website');
 
 // Save Domain
 const saveDomain = async (req, res) => {
@@ -17,10 +18,10 @@ const saveDomain = async (req, res) => {
     }
 
     // MongoDB storage only
-    // Check if subdomain is already taken
+    // Check if subdomain is already taken in websites collection
     if (subdomain) {
-      const existingDomain = await Domain.findOne({ subdomain });
-      if (existingDomain) {
+      const existingWebsite = await Website.findOne({ 'data.subdomain': subdomain });
+      if (existingWebsite) {
         return res.status(409).json({
           message: 'Subdomain already taken'
         });
@@ -90,13 +91,13 @@ const updateDomain = async (req, res) => {
     }
 
     // MongoDB storage only
-    // Check if subdomain is already taken by another domain
+    // Check if subdomain is already taken by another website
     if (subdomain) {
-      const existingDomain = await Domain.findOne({ 
-        subdomain, 
-        _id: { $ne: domainId } 
+      const existingWebsite = await Website.findOne({ 
+        'data.subdomain': subdomain,
+        _id: { $ne: websiteId } 
       });
-      if (existingDomain) {
+      if (existingWebsite) {
         return res.status(409).json({
           message: 'Subdomain already taken'
         });
@@ -227,36 +228,49 @@ const checkSubdomain = async (req, res) => {
     const { subdomain } = req.params;
     const userId = req.user.userId;
 
+    console.log('🔍 Checking subdomain availability:', { subdomain, userId });
+
     if (!subdomain) {
+      console.log('❌ No subdomain provided');
       return res.status(400).json({
+        available: false,
         message: 'Subdomain is required'
       });
     }
 
     const cleanSubdomain = subdomain.trim().toLowerCase();
+    console.log('🧹 Cleaned subdomain:', cleanSubdomain);
     
     // Basic subdomain validation
     const subdomainRegex = /^[a-z0-9][a-z0-9-]*[a-z0-9]?$/;
     if (!subdomainRegex.test(cleanSubdomain)) {
+      console.log('❌ Invalid subdomain format:', cleanSubdomain);
       return res.status(400).json({
         available: false,
         message: 'Invalid subdomain format. Use only lowercase letters, numbers, and hyphens. Cannot start or end with hyphen.'
       });
     }
 
-    // Check if subdomain is already taken by another user
-    const existingDomain = await Domain.findOne({ 
-      subdomain: cleanSubdomain,
+    // Check if subdomain is already taken by another user in websites collection
+    console.log('🔍 Searching for existing website with subdomain:', cleanSubdomain);
+    const existingWebsite = await Website.findOne({ 
+      'data.subdomain': cleanSubdomain,
       userId: { $ne: userId }
     });
     
-    res.json({
-      available: !existingDomain,
-      message: existingDomain ? 'Subdomain already taken' : 'Subdomain available'
-    });
+    console.log('📊 Existing website found:', !!existingWebsite);
+    
+    const result = {
+      available: !existingWebsite,
+      message: existingWebsite ? 'Subdomain already taken' : 'Subdomain available'
+    };
+    
+    console.log('✅ Subdomain check result:', result);
+    res.json(result);
   } catch (error) {
-    console.error('Check subdomain error:', error);
+    console.error('❌ Check subdomain error:', error);
     res.status(500).json({
+      available: false,
       message: 'Failed to check subdomain',
       error: error.message
     });

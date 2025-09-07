@@ -367,6 +367,453 @@ const verifyPassword = async (req, res) => {
   }
 };
 
+// Complete Onboarding
+const completeOnboarding = async (req, res) => {
+  try {
+    const { websiteName, subdomain, businessDescription, selectedSections, aiGeneratedContent, selectedTheme } = req.body;
+    const userId = req.user.userId;
+
+    console.log('🎯 Onboarding completion request:', { websiteName, subdomain, businessDescription, selectedSections, hasAIContent: !!aiGeneratedContent, selectedTheme });
+
+    if (!websiteName || !subdomain || !selectedSections || selectedSections.length === 0) {
+      return res.status(400).json({ 
+        message: 'Website name, subdomain, and at least one section are required' 
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Update user onboarding status
+    user.onboardingCompleted = true;
+    user.onboardingData = {
+      websiteName,
+      subdomain,
+      businessDescription,
+      selectedSections,
+      aiGeneratedContent,
+      selectedTheme,
+      completedAt: new Date()
+    };
+
+    // Create initial website data using the exact default structure from defaultData.js
+    const initialWebsiteData = {
+      name: websiteName,
+      data: {
+        // Basic Info - exactly as in defaultData.js with AI content
+        businessName: websiteName,
+        tagline: aiGeneratedContent?.tagline || `Welcome to ${websiteName}`,
+        logo: '',
+        favicon: '',
+        subdomain: subdomain,
+        
+        // Section Order - all sections in default order, but only selected ones will be visible
+        sectionOrder: [
+          'header',
+          'hero',
+          'about',
+          'portfolio',
+          'services',
+          'testimonials',
+          'skills',
+          'achievements',
+          'gallery',
+          'stats',
+          'blog',
+          'downloadables',
+          'faq',
+          'pricing',
+          'cta',
+          'social',
+          'contact',
+          'footer'
+        ],
+        
+        // Header - exact structure from defaultData.js
+        header: {
+          visible: selectedSections.includes('header'),
+          logo: '',
+          navigation: [
+            { name: 'Home', link: '#home' },
+            { name: 'About', link: '#about' },
+            { name: 'Services', link: '#services' },
+            { name: 'Contact', link: '#contact' }
+          ],
+          ctaButtons: [
+            { text: 'Get Started', link: '#contact', primary: true }
+          ]
+        },
+
+        // Hero Section - exact structure from defaultData.js with AI content
+        hero: {
+          visible: selectedSections.includes('hero'),
+          template: 1,
+          title: aiGeneratedContent?.heroTitle,
+          subtitle: aiGeneratedContent?.heroSubtitle,
+          description: aiGeneratedContent?.heroDescription ,
+          backgroundImage: '',
+          imageBorderRadius: 50,
+          ctaButtons: [
+            { text: 'Get Started', link: '#contact', primary: true },
+            { text: 'Learn More', link: '#about', primary: false }
+          ]
+        },
+
+        // About Me/Us - exact structure from defaultData.js with AI content
+        about: {
+          visible: selectedSections.includes('about'),
+          title: aiGeneratedContent?.aboutTitle || 'About Us',
+          subtitle: 'Your Trusted Partner',
+          description: aiGeneratedContent?.aboutDescription ,
+          image: '',
+          features: [
+            { title: 'Experience', description: '10+ Years in Industry' },
+            { title: 'Quality', description: 'Premium Service Quality' },
+            { title: 'Support', description: '24/7 Customer Support' }
+          ]
+        },
+
+        // Portfolio/Work/Projects - exact structure from defaultData.js
+        portfolio: {
+          visible: selectedSections.includes('portfolio'),
+          title: 'Our Portfolio',
+          subtitle: 'Recent Work & Projects',
+          projects: [
+            { title: 'Project 1', description: 'Description of project 1', image: '', link: '' },
+            { title: 'Project 2', description: 'Description of project 2', image: '', link: '' },
+            { title: 'Project 3', description: 'Description of project 3', image: '', link: '' }
+          ]
+        },
+
+        // Products/Services - exact structure from defaultData.js
+        services: {
+          visible: selectedSections.includes('services'),
+          title: 'Our Services',
+          subtitle: 'What We Offer',
+          items: [
+            { title: 'Service 1', description: 'Description of service 1', icon: '🚀', price: '', image: '', buttonText: 'Get Started', buttonLink: '#contact', features: [] },
+            { title: 'Service 2', description: 'Description of service 2', icon: '💡', price: '', image: '', buttonText: 'Get Started', buttonLink: '#contact', features: [] },
+            { title: 'Service 3', description: 'Description of service 3', icon: '⚡', price: '', image: '', buttonText: 'Get Started', buttonLink: '#contact', features: [] }
+          ]
+        },
+
+        // Testimonials/Reviews - exact structure from defaultData.js
+        testimonials: {
+          visible: selectedSections.includes('testimonials'),
+          title: 'What Our Clients Say',
+          subtitle: 'Customer Reviews',
+          items: [
+            { name: 'John Doe', role: 'CEO', company: 'Company 1', text: 'Excellent service and great results!', rating: 5, image: '' },
+            { name: 'Jane Smith', role: 'Manager', company: 'Company 2', text: 'Highly recommended for quality work.', rating: 5, image: '' },
+            { name: 'Mike Johnson', role: 'Director', company: 'Company 3', text: 'Professional team with outstanding results.', rating: 5, image: '' }
+          ]
+        },
+
+        // Skills/Expertise - exact structure from defaultData.js
+        skills: {
+          visible: selectedSections.includes('skills'),
+          title: 'Our Expertise',
+          subtitle: 'Skills & Capabilities',
+          items: [
+            { name: 'Skill 1', percentage: 90, color: 'blue' },
+            { name: 'Skill 2', percentage: 85, color: 'green' },
+            { name: 'Skill 3', percentage: 80, color: 'purple' },
+            { name: 'Skill 4', percentage: 95, color: 'orange' }
+          ]
+        },
+
+        // Achievements/Awards - exact structure from defaultData.js
+        achievements: {
+          visible: selectedSections.includes('achievements'),
+          title: 'Achievements & Awards',
+          subtitle: 'Recognition & Milestones',
+          items: [
+            { title: 'Award 1', description: 'Description of award 1', year: '2023', icon: '🏆' },
+            { title: 'Award 2', description: 'Description of award 2', year: '2022', icon: '⭐' },
+            { title: 'Award 3', description: 'Description of award 3', year: '2021', icon: '🎖️' }
+          ]
+        },
+
+        // Gallery/Media - exact structure from defaultData.js
+        gallery: {
+          visible: selectedSections.includes('gallery'),
+          title: 'Gallery',
+          subtitle: 'Our Work & Photos',
+          images: [
+            { src: '', alt: 'Gallery Image 1', title: 'Image 1' },
+            { src: '', alt: 'Gallery Image 2', title: 'Image 2' },
+            { src: '', alt: 'Gallery Image 3', title: 'Image 3' },
+            { src: '', alt: 'Gallery Image 4', title: 'Image 4' }
+          ]
+        },
+
+        // Stats/Numbers - exact structure from defaultData.js
+        stats: {
+          visible: selectedSections.includes('stats'),
+          title: 'Our Numbers',
+          subtitle: 'Key Statistics',
+          items: [
+            { number: '500+', label: 'Happy Clients', icon: '😊' },
+            { number: '1000+', label: 'Projects Completed', icon: '📊' },
+            { number: '50+', label: 'Team Members', icon: '👥' },
+            { number: '10+', label: 'Years Experience', icon: '⏰' }
+          ]
+        },
+
+        // Blog/Articles - exact structure from defaultData.js
+        blog: {
+          visible: selectedSections.includes('blog'),
+          title: 'Latest Articles',
+          subtitle: 'News & Updates',
+          posts: [
+            { title: 'Article 1', excerpt: 'Brief description of article 1', date: '2024-01-15', image: '', link: '' },
+            { title: 'Article 2', excerpt: 'Brief description of article 2', date: '2024-01-10', image: '', link: '' },
+            { title: 'Article 3', excerpt: 'Brief description of article 3', date: '2024-01-05', image: '', link: '' }
+          ]
+        },
+
+        // Downloadables - exact structure from defaultData.js
+        downloadables: {
+          visible: selectedSections.includes('downloadables'),
+          title: 'Resources',
+          subtitle: 'Free Downloads',
+          items: [
+            { title: 'Brochure', description: 'Company brochure in PDF', file: '', type: 'pdf' },
+            { title: 'Catalog', description: 'Product catalog', file: '', type: 'pdf' },
+            { title: 'Guide', description: 'User guide', file: '', type: 'pdf' }
+          ]
+        },
+
+        // FAQ - exact structure from defaultData.js
+        faq: {
+          visible: selectedSections.includes('faq'),
+          title: 'Frequently Asked Questions',
+          subtitle: 'Common Questions',
+          items: [
+            { question: 'What services do you offer?', answer: 'We offer a wide range of services including...' },
+            { question: 'How can I contact you?', answer: 'You can contact us through phone, email, or our contact form.' },
+            { question: 'What are your business hours?', answer: 'We are open Monday to Friday, 9 AM to 6 PM.' }
+          ]
+        },
+
+        // Pricing/Packages - exact structure from defaultData.js
+        pricing: {
+          visible: selectedSections.includes('pricing'),
+          title: 'Pricing Plans',
+          subtitle: 'Choose Your Plan',
+          plans: [
+            { name: 'Basic', price: '$99', period: 'month', features: ['Feature 1', 'Feature 2', 'Feature 3'], popular: false },
+            { name: 'Professional', price: '$199', period: 'month', features: ['All Basic features', 'Feature 4', 'Feature 5'], popular: true },
+            { name: 'Enterprise', price: '$299', period: 'month', features: ['All Professional features', 'Feature 6', 'Feature 7'], popular: false }
+          ]
+        },
+
+        // Call to Action Banner - exact structure from defaultData.js
+        cta: {
+          visible: selectedSections.includes('cta'),
+          title: 'Ready to Get Started?',
+          subtitle: 'Contact us today for a free consultation',
+          buttonText: 'Get Started Now',
+          buttonLink: '#contact',
+          backgroundImage: ''
+        },
+
+        // Social Media - exact structure from defaultData.js
+        social: {
+          visible: selectedSections.includes('social'),
+          sticky: false,
+          title: 'Follow Us',
+          subtitle: 'Stay Connected',
+          platforms: [
+            { name: 'Facebook', url: 'https://facebook.com/your-page', icon: 'facebook', enabled: false },
+            { name: 'Instagram', url: 'https://instagram.com/your-profile', icon: 'instagram', enabled: false },
+            { name: 'Twitter', url: 'https://twitter.com/your-handle', icon: 'twitter', enabled: false },
+            { name: 'LinkedIn', url: 'https://linkedin.com/company/your-company', icon: 'linkedin', enabled: false },
+            { name: 'YouTube', url: 'https://youtube.com/your-channel', icon: 'youtube', enabled: false },
+            { name: 'WhatsApp', url: 'https://wa.me/1234567890', icon: 'whatsapp', enabled: false },
+            { name: 'TikTok', url: 'https://tiktok.com/@your-username', icon: 'tiktok', enabled: false },
+            { name: 'Telegram', url: 'https://t.me/your-username', icon: 'telegram', enabled: false },
+            { name: 'Discord', url: 'https://discord.gg/your-server', icon: 'discord', enabled: false },
+            { name: 'Snapchat', url: 'your-snapchat-username', icon: 'snapchat', enabled: false }
+          ]
+        },
+
+        // Contact - exact structure from defaultData.js with user data
+        contact: {
+          visible: selectedSections.includes('contact'),
+          title: 'Contact Us',
+          subtitle: 'Get In Touch',
+          address: 'Your Business Address',
+          phone: user.phone,
+          whatsapp: user.phone,
+          email: user.email,
+          hours: 'Monday - Friday: 9:00 AM - 6:00 PM',
+          form: {
+            name: true,
+            email: true,
+            phone: true,
+            message: true,
+            subject: false
+          }
+        },
+
+        // Footer - exact structure from defaultData.js with user data
+        footer: {
+          visible: selectedSections.includes('footer'),
+          copyright: `© 2024 ${websiteName}. All rights reserved.`,
+          description: 'We are dedicated to providing exceptional services and creating meaningful connections with our customers.',
+          backgroundColor: 'dark',
+          contactTitle: 'Contact Info',
+          contactDescription: 'Get in touch with us for any questions or inquiries. We\'re here to help you succeed.',
+          links: [
+            { name: 'Privacy Policy', url: '#privacy' },
+            { name: 'Terms of Service', url: '#terms' },
+            { name: 'Cookie Policy', url: '#cookies' }
+          ]
+        },
+
+        // Theme & Styling - dynamic based on selected theme
+        theme: (() => {
+          const themes = {
+            default: {
+              selectedTheme: 'default',
+              primaryColor: '#000000',
+              secondaryColor: '#ffffff',
+              accentColor: '#a540f7',
+              backgroundColor: '#FFFFFF',
+              textColor: '#1F2937',
+              fontFamily: 'Inter',
+              borderRadius: '8px'
+            },
+            yellow: {
+              selectedTheme: 'yellow',
+              primaryColor: '#F59E0B',
+              secondaryColor: '#F97316',
+              accentColor: '#EF4444',
+              backgroundColor: '#FFFFFF',
+              textColor: '#1F2937',
+              fontFamily: 'Inter',
+              borderRadius: '8px'
+            },
+            pink: {
+              selectedTheme: 'pink',
+              primaryColor: '#EC4899',
+              secondaryColor: '#8B5CF6',
+              accentColor: '#F59E0B',
+              backgroundColor: '#FFFFFF',
+              textColor: '#1F2937',
+              fontFamily: 'Inter',
+              borderRadius: '8px'
+            },
+            green: {
+              selectedTheme: 'green',
+              primaryColor: '#10B981',
+              secondaryColor: '#059669',
+              accentColor: '#F59E0B',
+              backgroundColor: '#FFFFFF',
+              textColor: '#1F2937',
+              fontFamily: 'Inter',
+              borderRadius: '8px'
+            }
+          };
+          return themes[selectedTheme] || themes.default;
+        })()
+      }
+    };
+
+    // Create website directly for onboarding (bypass limit check)
+    const Website = require('../models/Website');
+    const website = new Website({
+      userId: userId,
+      name: initialWebsiteData.name,
+      data: initialWebsiteData.data,
+      updatedAt: new Date()
+    });
+
+    await website.save();
+    console.log('✅ Website saved to MongoDB:', website._id);
+
+    // Save user onboarding data
+    await user.save();
+
+    console.log('✅ Onboarding completed for user:', userId);
+    console.log('✅ Initial website created:', initialWebsiteData.name);
+    console.log('✅ Website ID:', website._id);
+
+    res.json({ 
+      message: 'Onboarding completed successfully',
+      user: {
+        id: user._id,
+        phone: user.phone,
+        fullName: user.fullName,
+        email: user.email,
+        onboardingCompleted: user.onboardingCompleted,
+        onboardingData: user.onboardingData
+      },
+      website: {
+        id: website._id,
+        name: website.name
+      }
+    });
+  } catch (error) {
+    console.error('Onboarding completion error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Fix onboarding status for users who already have websites
+const fixOnboardingStatus = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    console.log('🔧 Fixing onboarding status for user:', userId);
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check if user has websites
+    const Website = require('../models/Website');
+    const websiteCount = await Website.countDocuments({ userId });
+    console.log('📊 User has', websiteCount, 'websites');
+
+    if (websiteCount > 0 && !user.onboardingCompleted) {
+      // User has websites but onboarding is not marked as completed
+      user.onboardingCompleted = true;
+      await user.save();
+      console.log('✅ Fixed onboarding status for user:', userId);
+      
+      return res.json({ 
+        message: 'Onboarding status fixed successfully',
+        user: {
+          id: user._id,
+          phone: user.phone,
+          fullName: user.fullName,
+          email: user.email,
+          onboardingCompleted: user.onboardingCompleted
+        }
+      });
+    } else {
+      console.log('ℹ️ No fix needed for user:', userId);
+      return res.json({ 
+        message: 'No fix needed',
+        user: {
+          id: user._id,
+          phone: user.phone,
+          fullName: user.fullName,
+          email: user.email,
+          onboardingCompleted: user.onboardingCompleted
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Fix onboarding status error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 // Debug: List all users with reset tokens (for testing only)
 const debugUsers = async (req, res) => {
   try {
@@ -390,5 +837,7 @@ module.exports = {
   forgotPassword,
   validateResetToken,
   resetPasswordWithToken,
+  completeOnboarding,
+  fixOnboardingStatus,
   debugUsers
 };

@@ -50,8 +50,11 @@ const saveWebsite = async (req, res) => {
 const getWebsites = async (req, res) => {
   try {
     const userId = req.user.userId;
+    console.log('🔍 Getting websites for userId:', userId);
 
     const websites = await Website.find({ userId }).sort({ updatedAt: -1 });
+    console.log('📊 Found websites:', websites.length);
+    console.log('📋 Website details:', websites.map(w => ({ id: w._id, name: w.name, isPublished: w.isPublished })));
     
     // Check subscription status and unpublish if expired
     const Subscription = require('../models/Subscription');
@@ -86,6 +89,7 @@ const getWebsites = async (req, res) => {
       }
     }
     
+    console.log('✅ Sending websites response:', websites.length, 'websites');
     res.json(websites);
   } catch (error) {
     console.error('Get websites error:', error);
@@ -358,6 +362,42 @@ const checkDomainDNS = async (req, res) => {
   }
 };
 
+// Get Website by Subdomain (Public)
+const getWebsiteBySubdomain = async (req, res) => {
+  try {
+    const { subdomain } = req.params;
+    console.log('🔍 Backend: Looking for website with subdomain:', subdomain);
+
+    if (!subdomain) {
+      return res.status(400).json({
+        message: 'Subdomain is required'
+      });
+    }
+
+    // Find website by subdomain
+    const website = await Website.findOne({
+      'data.subdomain': subdomain,
+      isPublished: true // Only return published websites
+    });
+
+    console.log('📊 Backend: Website found:', !!website);
+
+    if (!website) {
+      console.log('❌ Backend: No published website found for subdomain:', subdomain);
+      return res.status(404).json({
+        message: 'Website not found or not published'
+      });
+    }
+
+    console.log('✅ Backend: Returning website data for subdomain:', subdomain);
+    res.json(website);
+
+  } catch (error) {
+    console.error('❌ Backend: Error fetching website by subdomain:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   saveWebsite,
   getWebsites,
@@ -367,5 +407,6 @@ module.exports = {
   publishWebsite,
   unpublishWebsite,
   getPublishedWebsite,
+  getWebsiteBySubdomain,
   checkDomainDNS
 };
