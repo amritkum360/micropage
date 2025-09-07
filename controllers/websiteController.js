@@ -398,6 +398,143 @@ const getWebsiteBySubdomain = async (req, res) => {
   }
 };
 
+// Get Website by Custom Domain (Public)
+const getWebsiteByCustomDomain = async (req, res) => {
+  try {
+    const { domain } = req.params;
+    console.log('🔍 Backend: Looking for website with custom domain:', domain);
+
+    if (!domain) {
+      return res.status(400).json({
+        message: 'Domain is required'
+      });
+    }
+
+    // Find website by custom domain
+    const website = await Website.findOne({
+      'data.customDomain': domain,
+      isPublished: true // Only return published websites
+    });
+
+    console.log('📊 Backend: Website found:', !!website);
+
+    if (!website) {
+      console.log('❌ Backend: No published website found for custom domain:', domain);
+      return res.status(404).json({
+        message: 'Website not found or not published'
+      });
+    }
+
+    console.log('✅ Backend: Returning website data for custom domain:', domain);
+    res.json(website);
+
+  } catch (error) {
+    console.error('❌ Backend: Error fetching website by custom domain:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Set Custom Domain
+const setCustomDomain = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { customDomain } = req.body;
+    const userId = req.user.userId;
+
+    console.log('🔍 Backend: Setting custom domain for website:', id, 'to:', customDomain);
+
+    if (!customDomain) {
+      return res.status(400).json({
+        message: 'Custom domain is required'
+      });
+    }
+
+    // Basic domain validation
+    const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}$/;
+    if (!domainRegex.test(customDomain)) {
+      return res.status(400).json({
+        message: 'Invalid domain format'
+      });
+    }
+
+    // Check if domain is already in use
+    const existingWebsite = await Website.findOne({
+      'data.customDomain': customDomain,
+      _id: { $ne: id }
+    });
+
+    if (existingWebsite) {
+      return res.status(400).json({
+        message: 'This domain is already in use by another website'
+      });
+    }
+
+    // Update website with custom domain
+    const website = await Website.findOneAndUpdate(
+      { _id: id, userId: userId },
+      { 
+        $set: { 
+          'data.customDomain': customDomain,
+          updatedAt: new Date()
+        }
+      },
+      { new: true }
+    );
+
+    if (!website) {
+      return res.status(404).json({
+        message: 'Website not found'
+      });
+    }
+
+    console.log('✅ Backend: Custom domain set successfully');
+    res.json({
+      message: 'Custom domain set successfully',
+      website
+    });
+
+  } catch (error) {
+    console.error('❌ Backend: Error setting custom domain:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Remove Custom Domain
+const removeCustomDomain = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    console.log('🔍 Backend: Removing custom domain for website:', id);
+
+    // Update website to remove custom domain
+    const website = await Website.findOneAndUpdate(
+      { _id: id, userId: userId },
+      { 
+        $unset: { 'data.customDomain': 1 },
+        $set: { updatedAt: new Date() }
+      },
+      { new: true }
+    );
+
+    if (!website) {
+      return res.status(404).json({
+        message: 'Website not found'
+      });
+    }
+
+    console.log('✅ Backend: Custom domain removed successfully');
+    res.json({
+      message: 'Custom domain removed successfully',
+      website
+    });
+
+  } catch (error) {
+    console.error('❌ Backend: Error removing custom domain:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   saveWebsite,
   getWebsites,
@@ -408,5 +545,8 @@ module.exports = {
   unpublishWebsite,
   getPublishedWebsite,
   getWebsiteBySubdomain,
+  getWebsiteByCustomDomain,
+  setCustomDomain,
+  removeCustomDomain,
   checkDomainDNS
 };
