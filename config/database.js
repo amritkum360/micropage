@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/micropage';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://Amritkum360:7004343011@cluster0.1bafcyc.mongodb.net/micropage';
 
 // Force MongoDB usage - no in-memory fallback
 let useInMemory = false;
