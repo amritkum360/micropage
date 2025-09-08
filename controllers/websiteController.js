@@ -1,6 +1,9 @@
 const Website = require('../models/Website');
 const dns = require('dns').promises;
 
+// Import Vercel service for automatic domain management
+const vercelService = require('../../src/services/vercelService');
+
 // Save Website
 const saveWebsite = async (req, res) => {
   try {
@@ -126,10 +129,30 @@ const updateWebsite = async (req, res) => {
     const { name, data } = req.body;
     const websiteId = req.params.id;
     const userId = req.user.userId;
-    console.log('Updating website with ID:', websiteId, 'for user:', userId);
+    
+    console.log('🔍 UpdateWebsite - Starting update process...');
+    console.log('🔍 UpdateWebsite - Website ID:', websiteId);
+    console.log('🔍 UpdateWebsite - User ID:', userId);
+    console.log('🔍 UpdateWebsite - Name:', name);
+    console.log('🔍 UpdateWebsite - Data:', JSON.stringify(data, null, 2));
+    console.log('🔍 UpdateWebsite - Custom Domain in data:', data?.customDomain);
+
+    // Convert userId to ObjectId if it's a string
+    const mongoose = require('mongoose');
+    const userIdObjectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
+    
+    console.log('🔍 UpdateWebsite - UserId type:', typeof userId);
+    console.log('🔍 UpdateWebsite - UserId value:', userId);
+    console.log('🔍 UpdateWebsite - UserId ObjectId:', userIdObjectId);
+
+    // Get the current website first to compare
+    const currentWebsite = await Website.findOne({ _id: websiteId, userId: userIdObjectId });
+    if (currentWebsite) {
+      console.log('🔍 UpdateWebsite - Current website data:', JSON.stringify(currentWebsite.data, null, 2));
+    }
 
     const website = await Website.findOneAndUpdate(
-      { _id: websiteId, userId: userId },
+      { _id: websiteId, userId: userIdObjectId },
       { 
         name, 
         data, 
@@ -139,16 +162,60 @@ const updateWebsite = async (req, res) => {
     );
 
     if (!website) {
+      console.log('❌ UpdateWebsite - Website not found');
       return res.status(404).json({ message: 'Website not found' });
+    }
+
+    console.log('✅ UpdateWebsite - Website updated successfully');
+    console.log('✅ UpdateWebsite - Updated website data:', JSON.stringify(website.data, null, 2));
+    console.log('✅ UpdateWebsite - Custom Domain after update:', website.data?.customDomain);
+
+    // Check if customDomain was added and add it to Vercel
+    let vercelResult = null;
+    if (data?.customDomain && data.customDomain !== currentWebsite?.data?.customDomain) {
+      console.log('🔧 UpdateWebsite: Custom domain was added, checking Vercel configuration...');
+      console.log('🔧 Vercel configured:', vercelService.isConfigured());
+      console.log('🔧 Config status:', vercelService.getConfigStatus());
+      
+      if (vercelService.isConfigured()) {
+        console.log('🌐 UpdateWebsite: Adding domain to Vercel project...');
+        try {
+          vercelResult = await vercelService.addCustomDomain(data.customDomain);
+          console.log('🔧 Vercel result:', vercelResult);
+          
+          if (vercelResult.success) {
+            console.log('✅ UpdateWebsite: Domain added to Vercel successfully');
+          } else {
+            console.warn('⚠️ UpdateWebsite: Failed to add domain to Vercel:', vercelResult.error);
+            // Don't fail the request if Vercel fails, just log the warning
+          }
+        } catch (vercelError) {
+          console.error('❌ UpdateWebsite: Vercel API error:', vercelError);
+          vercelResult = {
+            success: false,
+            error: vercelError.message,
+            domain: data.customDomain
+          };
+        }
+      } else {
+        console.log('⚠️ UpdateWebsite: Vercel service not configured, skipping automatic domain addition');
+        console.log('⚠️ Missing environment variables: VERCEL_API_TOKEN, VERCEL_PROJECT_ID');
+      }
     }
 
     res.json({
       message: 'Website updated successfully',
-      website
+      website,
+      vercel: vercelResult ? {
+        success: vercelResult.success,
+        status: vercelResult.status,
+        verification: vercelResult.verification,
+        error: vercelResult.error
+      } : null
     });
 
   } catch (error) {
-    console.error('Update website error:', error);
+    console.error('❌ UpdateWebsite - Error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -460,6 +527,9 @@ const setCustomDomain = async (req, res) => {
     const userId = req.user.userId;
 
     console.log('🔍 Backend: Setting custom domain for website:', id, 'to:', customDomain);
+    console.log('🔧 Backend: Environment variables check:');
+    console.log('🔧 VERCEL_API_TOKEN:', process.env.VERCEL_API_TOKEN ? 'Set' : 'Not set');
+    console.log('🔧 VERCEL_PROJECT_ID:', process.env.VERCEL_PROJECT_ID ? 'Set' : 'Not set');
 
     if (!customDomain) {
       return res.status(400).json({
@@ -488,16 +558,23 @@ const setCustomDomain = async (req, res) => {
       domainVariations.push(customDomain.substring(4));
     }
 
+    console.log('🔍 Checking domain variations:', domainVariations);
+
     const existingWebsite = await Website.findOne({
       'data.customDomain': { $in: domainVariations },
       _id: { $ne: id }
     });
 
     if (existingWebsite) {
+      console.log('❌ Domain already in use by website:', existingWebsite._id);
       return res.status(400).json({
-        message: 'This domain (or its www/non-www version) is already in use by another website'
+        message: 'This domain (or its www/non-www version) is already in use by another website',
+        existingDomain: existingWebsite.data.customDomain,
+        conflictingWebsiteId: existingWebsite._id
       });
     }
+
+    console.log('✅ Domain is available for use');
 
     // Update website with custom domain
     const website = await Website.findOneAndUpdate(
@@ -517,10 +594,47 @@ const setCustomDomain = async (req, res) => {
       });
     }
 
+    // Add domain to Vercel project automatically
+    let vercelResult = null;
+    console.log('🔧 Backend: Checking Vercel configuration...');
+    console.log('🔧 Vercel configured:', vercelService.isConfigured());
+    console.log('🔧 Config status:', vercelService.getConfigStatus());
+    
+    if (vercelService.isConfigured()) {
+      console.log('🌐 Backend: Adding domain to Vercel project...');
+      try {
+        vercelResult = await vercelService.addCustomDomain(customDomain);
+        console.log('🔧 Vercel result:', vercelResult);
+        
+        if (vercelResult.success) {
+          console.log('✅ Backend: Domain added to Vercel successfully');
+        } else {
+          console.warn('⚠️ Backend: Failed to add domain to Vercel:', vercelResult.error);
+          // Don't fail the request if Vercel fails, just log the warning
+        }
+      } catch (vercelError) {
+        console.error('❌ Backend: Vercel API error:', vercelError);
+        vercelResult = {
+          success: false,
+          error: vercelError.message,
+          domain: customDomain
+        };
+      }
+    } else {
+      console.log('⚠️ Backend: Vercel service not configured, skipping automatic domain addition');
+      console.log('⚠️ Missing environment variables: VERCEL_API_TOKEN, VERCEL_PROJECT_ID');
+    }
+
     console.log('✅ Backend: Custom domain set successfully');
     res.json({
       message: 'Custom domain set successfully',
-      website
+      website,
+      vercel: vercelResult ? {
+        success: vercelResult.success,
+        status: vercelResult.status,
+        verification: vercelResult.verification,
+        error: vercelResult.error
+      } : null
     });
 
   } catch (error) {
@@ -537,6 +651,20 @@ const removeCustomDomain = async (req, res) => {
 
     console.log('🔍 Backend: Removing custom domain for website:', id);
 
+    // Get the current website to find the domain to remove
+    const currentWebsite = await Website.findOne({
+      _id: id,
+      userId: userId
+    });
+
+    if (!currentWebsite) {
+      return res.status(404).json({
+        message: 'Website not found'
+      });
+    }
+
+    const domainToRemove = currentWebsite.data?.customDomain;
+
     // Update website to remove custom domain
     const website = await Website.findOneAndUpdate(
       { _id: id, userId: userId },
@@ -547,16 +675,30 @@ const removeCustomDomain = async (req, res) => {
       { new: true }
     );
 
-    if (!website) {
-      return res.status(404).json({
-        message: 'Website not found'
-      });
+    // Remove domain from Vercel project automatically
+    let vercelResult = null;
+    if (domainToRemove && vercelService.isConfigured()) {
+      console.log('🌐 Backend: Removing domain from Vercel project...');
+      vercelResult = await vercelService.removeCustomDomain(domainToRemove);
+      
+      if (vercelResult.success) {
+        console.log('✅ Backend: Domain removed from Vercel successfully');
+      } else {
+        console.warn('⚠️ Backend: Failed to remove domain from Vercel:', vercelResult.error);
+        // Don't fail the request if Vercel fails, just log the warning
+      }
+    } else if (domainToRemove) {
+      console.log('⚠️ Backend: Vercel service not configured, skipping automatic domain removal');
     }
 
     console.log('✅ Backend: Custom domain removed successfully');
     res.json({
       message: 'Custom domain removed successfully',
-      website
+      website,
+      vercel: vercelResult ? {
+        success: vercelResult.success,
+        error: vercelResult.error
+      } : null
     });
 
   } catch (error) {

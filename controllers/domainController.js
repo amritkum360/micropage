@@ -38,13 +38,23 @@ const saveDomain = async (req, res) => {
       }
     }
 
-    const domain = new Domain({
+    const domainData = {
       userId,
       websiteId,
-      name,
-      subdomain: subdomain || null,
-      customDomain: customDomain || null
-    });
+      name
+    };
+
+    // Only add subdomain if it's provided and not empty
+    if (subdomain && subdomain.trim()) {
+      domainData.subdomain = subdomain.trim();
+    }
+
+    // Only add customDomain if it's provided and not empty
+    if (customDomain && customDomain.trim()) {
+      domainData.customDomain = customDomain.trim();
+    }
+
+    const domain = new Domain(domainData);
 
     await domain.save();
 
@@ -117,14 +127,37 @@ const updateDomain = async (req, res) => {
       }
     }
 
+    const updateData = {
+      updatedAt: Date.now()
+    };
+
+    // Only update name if provided
+    if (name) {
+      updateData.name = name;
+    }
+
+    // Only update subdomain if provided and not empty
+    if (subdomain && subdomain.trim()) {
+      updateData.subdomain = subdomain.trim();
+    } else if (subdomain === '') {
+      // If empty string is provided, remove the subdomain field
+      updateData.$unset = { subdomain: 1 };
+    }
+
+    // Only update customDomain if provided and not empty
+    if (customDomain && customDomain.trim()) {
+      updateData.customDomain = customDomain.trim();
+    } else if (customDomain === '') {
+      // If empty string is provided, remove the customDomain field
+      if (!updateData.$unset) {
+        updateData.$unset = {};
+      }
+      updateData.$unset.customDomain = 1;
+    }
+
     const updatedDomain = await Domain.findOneAndUpdate(
       { _id: domainId, userId },
-      {
-        name: name || undefined,
-        subdomain: subdomain !== undefined ? subdomain : undefined,
-        customDomain: customDomain !== undefined ? customDomain : undefined,
-        updatedAt: Date.now()
-      },
+      updateData,
       { new: true }
     );
 
