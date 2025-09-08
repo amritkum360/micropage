@@ -100,7 +100,22 @@ const getProfile = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    res.json(user);
+    
+    // Transform user object to include id field for consistency
+    const userData = {
+      id: user._id,
+      phone: user.phone,
+      fullName: user.fullName,
+      email: user.email,
+      createdAt: user.createdAt,
+      resetToken: user.resetToken,
+      resetTokenExpiry: user.resetTokenExpiry,
+      websites: user.websites,
+      onboardingCompleted: user.onboardingCompleted,
+      onboardingData: user.onboardingData
+    };
+    
+    res.json(userData);
   } catch (error) {
     console.error('Profile error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -313,9 +328,23 @@ const updateProfile = async (req, res) => {
       const userWithoutPassword = await User.findById(userId).select('-password');
       console.log('📤 Sending updated user data:', userWithoutPassword);
       
+      // Transform user object to include id field for consistency
+      const userData = {
+        id: userWithoutPassword._id,
+        phone: userWithoutPassword.phone,
+        fullName: userWithoutPassword.fullName,
+        email: userWithoutPassword.email,
+        createdAt: userWithoutPassword.createdAt,
+        resetToken: userWithoutPassword.resetToken,
+        resetTokenExpiry: userWithoutPassword.resetTokenExpiry,
+        websites: userWithoutPassword.websites,
+        onboardingCompleted: userWithoutPassword.onboardingCompleted,
+        onboardingData: userWithoutPassword.onboardingData
+      };
+      
       res.json({ 
         message: 'Profile updated successfully',
-        user: userWithoutPassword
+        user: userData
       });
     } catch (dbError) {
       console.error('❌ Database operation error:', dbError);
