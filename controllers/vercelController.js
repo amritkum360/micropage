@@ -1,4 +1,4 @@
-const vercelService = require('../../src/services/vercelService');
+const vercelService = require('../services/vercelService');
 
 // Check Vercel configuration status
 const checkVercelConfig = async (req, res) => {

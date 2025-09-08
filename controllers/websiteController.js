@@ -2,7 +2,7 @@ const Website = require('../models/Website');
 const dns = require('dns').promises;
 
 // Import Vercel service for automatic domain management
-const vercelService = require('../../src/services/vercelService');
+const vercelService = require('../services/vercelService');
 
 // Save Website
 const saveWebsite = async (req, res) => {
