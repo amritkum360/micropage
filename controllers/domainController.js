@@ -310,6 +310,93 @@ const checkSubdomain = async (req, res) => {
   }
 };
 
+// Check Custom Domain Availability
+const checkCustomDomain = async (req, res) => {
+  try {
+    const { domain } = req.params;
+    const userId = req.user.userId;
+
+    console.log('🔍 Checking custom domain availability:', { domain, userId });
+
+    if (!domain) {
+      console.log('❌ No custom domain provided');
+      return res.status(400).json({
+        available: false,
+        message: 'Custom domain is required'
+      });
+    }
+
+    // Validate domain format
+    const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}$/;
+    if (!domainRegex.test(domain)) {
+      return res.status(400).json({
+        available: false,
+        message: 'Invalid domain format. Please enter a valid domain name (e.g., example.com)'
+      });
+    }
+
+    // Create domain variations to check (www and non-www versions)
+    const domainVariations = [domain];
+    
+    // Add www version if domain doesn't start with www
+    if (!domain.startsWith('www.')) {
+      domainVariations.push(`www.${domain}`);
+    }
+    
+    // Add non-www version if domain starts with www
+    if (domain.startsWith('www.')) {
+      domainVariations.push(domain.substring(4));
+    }
+
+    console.log('🔍 Checking domain variations:', domainVariations);
+
+    // Check if custom domain is already taken in websites collection
+    const existingWebsite = await Website.findOne({ 
+      'data.customDomain': { $in: domainVariations },
+      userId: { $ne: userId } // Exclude current user's websites
+    });
+    
+    if (existingWebsite) {
+      console.log('❌ Custom domain already taken by website:', existingWebsite._id);
+      return res.json({
+        available: false,
+        message: `This domain (or its www/non-www version) is already in use by another website`,
+        conflictingDomain: existingWebsite.data.customDomain,
+        conflictingWebsiteId: existingWebsite._id
+      });
+    }
+
+    // Check if custom domain is already taken in domains collection
+    const existingDomain = await Domain.findOne({ 
+      customDomain: { $in: domainVariations }
+    });
+    
+    if (existingDomain) {
+      console.log('❌ Custom domain already taken by domain:', existingDomain._id);
+      return res.json({
+        available: false,
+        message: `This domain (or its www/non-www version) is already in use by another website`,
+        conflictingDomain: existingDomain.customDomain,
+        conflictingDomainId: existingDomain._id
+      });
+    }
+
+    console.log('✅ Custom domain is available');
+    return res.json({
+      available: true,
+      message: 'Custom domain is available'
+    });
+
+  } catch (error) {
+    console.error('Check custom domain error:', error);
+    res.status(500).json({
+      available: false,
+      message: 'Failed to check custom domain availability',
+      error: error.message
+    });
+  }
+};
+
 // Delete Domain
 const deleteDomain = async (req, res) => {
   try {
@@ -343,5 +430,6 @@ module.exports = {
   publishDomain,
   unpublishDomain,
   checkSubdomain,
+  checkCustomDomain,
   deleteDomain
 };

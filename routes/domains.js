@@ -8,6 +8,7 @@ const {
   publishDomain, 
   unpublishDomain, 
   checkSubdomain, 
+  checkCustomDomain,
   deleteDomain 
 } = require('../controllers/domainController');
 
@@ -28,6 +29,9 @@ router.post('/:id/unpublish', authenticateToken, unpublishDomain);
 
 // Check Subdomain Availability
 router.get('/check-subdomain/:subdomain', authenticateToken, checkSubdomain);
+
+// Check Custom Domain Availability
+router.get('/check-custom-domain/:domain', authenticateToken, checkCustomDomain);
 
 // Delete Domain
 router.delete('/:id', authenticateToken, deleteDomain);
