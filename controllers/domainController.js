@@ -1,4 +1,4 @@
-const Domain = require('../models/Domain');
+// const Domain = require('../models/Domain'); // No longer using Domain collection
 const Website = require('../models/Website');
 
 // Save Domain
@@ -28,39 +28,45 @@ const saveDomain = async (req, res) => {
       }
     }
 
-    // Check if custom domain is already taken
+    // Check if custom domain is already taken in websites collection
     if (customDomain) {
-      const existingDomain = await Domain.findOne({ customDomain });
-      if (existingDomain) {
+      const existingWebsite = await Website.findOne({ 'data.customDomain': customDomain });
+      if (existingWebsite) {
         return res.status(409).json({
           message: 'Custom domain already taken'
         });
       }
     }
 
-    const domainData = {
-      userId,
-      websiteId,
-      name
-    };
-
+    // Update the website with domain information
+    const updateData = {};
+    
     // Only add subdomain if it's provided and not empty
     if (subdomain && subdomain.trim()) {
-      domainData.subdomain = subdomain.trim();
+      updateData['data.subdomain'] = subdomain.trim();
     }
 
     // Only add customDomain if it's provided and not empty
     if (customDomain && customDomain.trim()) {
-      domainData.customDomain = customDomain.trim();
+      updateData['data.customDomain'] = customDomain.trim();
     }
 
-    const domain = new Domain(domainData);
+    // Update the website
+    const updatedWebsite = await Website.findOneAndUpdate(
+      { _id: websiteId, userId },
+      { $set: updateData },
+      { new: true }
+    );
 
-    await domain.save();
+    if (!updatedWebsite) {
+      return res.status(404).json({
+        message: 'Website not found'
+      });
+    }
 
     res.status(201).json({
       message: 'Domain saved successfully',
-      domain
+      website: updatedWebsite
     });
   } catch (error) {
     console.error('Save domain error:', error);
@@ -68,11 +74,32 @@ const saveDomain = async (req, res) => {
   }
 };
 
-// Get Domains for User
+// Get Domains for User (from Website collection)
 const getDomains = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const domains = await Domain.find({ userId });
+    const websites = await Website.find({ 
+      userId,
+      $or: [
+        { 'data.subdomain': { $exists: true, $ne: null, $ne: '' } },
+        { 'data.customDomain': { $exists: true, $ne: null, $ne: '' } }
+      ]
+    });
+    
+    // Transform websites to domain-like format for frontend compatibility
+    const domains = websites.map(website => ({
+      _id: website._id,
+      userId: website.userId,
+      websiteId: website._id,
+      name: website.name,
+      subdomain: website.data?.subdomain || null,
+      customDomain: website.data?.customDomain || null,
+      publishedUrl: website.data?.customDomain || (website.data?.subdomain ? `${website.data.subdomain}.aboutwebsite.in` : null),
+      isPublished: website.isPublished || false,
+      createdAt: website.createdAt,
+      updatedAt: website.updatedAt
+    }));
+    
     res.json(domains);
   } catch (error) {
     console.error('Get domains error:', error);
@@ -114,13 +141,13 @@ const updateDomain = async (req, res) => {
       }
     }
 
-    // Check if custom domain is already taken by another domain
+    // Check if custom domain is already taken by another website
     if (customDomain) {
-      const existingDomain = await Domain.findOne({ 
-        customDomain, 
-        _id: { $ne: domainId } 
+      const existingWebsite = await Website.findOne({ 
+        'data.customDomain': customDomain,
+        _id: { $ne: websiteId } 
       });
-      if (existingDomain) {
+      if (existingWebsite) {
         return res.status(409).json({
           message: 'Custom domain already taken'
         });
@@ -138,38 +165,38 @@ const updateDomain = async (req, res) => {
 
     // Only update subdomain if provided and not empty
     if (subdomain && subdomain.trim()) {
-      updateData.subdomain = subdomain.trim();
+      updateData['data.subdomain'] = subdomain.trim();
     } else if (subdomain === '') {
       // If empty string is provided, remove the subdomain field
-      updateData.$unset = { subdomain: 1 };
+      updateData.$unset = { 'data.subdomain': 1 };
     }
 
     // Only update customDomain if provided and not empty
     if (customDomain && customDomain.trim()) {
-      updateData.customDomain = customDomain.trim();
+      updateData['data.customDomain'] = customDomain.trim();
     } else if (customDomain === '') {
       // If empty string is provided, remove the customDomain field
       if (!updateData.$unset) {
         updateData.$unset = {};
       }
-      updateData.$unset.customDomain = 1;
+      updateData.$unset['data.customDomain'] = 1;
     }
 
-    const updatedDomain = await Domain.findOneAndUpdate(
-      { _id: domainId, userId },
-      updateData,
+    const updatedWebsite = await Website.findOneAndUpdate(
+      { _id: websiteId, userId },
+      { $set: updateData },
       { new: true }
     );
 
-    if (!updatedDomain) {
+    if (!updatedWebsite) {
       return res.status(404).json({
-        message: 'Domain not found'
+        message: 'Website not found'
       });
     }
 
     res.json({
       message: 'Domain updated successfully',
-      domain: updatedDomain
+      website: updatedWebsite
     });
   } catch (error) {
     console.error('Update domain error:', error);
@@ -180,80 +207,80 @@ const updateDomain = async (req, res) => {
   }
 };
 
-// Publish Domain
-const publishDomain = async (req, res) => {
-  try {
-    const domainId = req.params.id;
-    const userId = req.user.userId;
+// Publish Domain - NOT USED IN FRONTEND
+// const publishDomain = async (req, res) => {
+//   try {
+//     const domainId = req.params.id;
+//     const userId = req.user.userId;
 
-    const domain = await Domain.findOne({ _id: domainId, userId });
+//     const domain = await Domain.findOne({ _id: domainId, userId });
     
-    if (!domain) {
-      return res.status(404).json({
-        message: 'Domain not found'
-      });
-    }
+//     if (!domain) {
+//       return res.status(404).json({
+//         message: 'Domain not found'
+//       });
+//     }
 
-    if (!domain.subdomain && !domain.customDomain) {
-      return res.status(400).json({
-        message: 'No subdomain or custom domain configured'
-      });
-    }
+//     if (!domain.subdomain && !domain.customDomain) {
+//       return res.status(400).json({
+//         message: 'No subdomain or custom domain configured'
+//       });
+//     }
 
-    const publishedUrl = domain.customDomain || `${domain.subdomain}.jirocash.com`;
+//     const publishedUrl = domain.customDomain || `${domain.subdomain}.aboutwebsite.in`;
     
-    domain.publishedUrl = publishedUrl;
-    domain.isPublished = true;
-    domain.updatedAt = Date.now();
+//     domain.publishedUrl = publishedUrl;
+//     domain.isPublished = true;
+//     domain.updatedAt = Date.now();
     
-    await domain.save();
+//     await domain.save();
 
-    res.json({
-      message: 'Domain published successfully',
-      publishedUrl
-    });
-  } catch (error) {
-    console.error('Publish domain error:', error);
-    res.status(500).json({
-      message: 'Failed to publish domain',
-      error: error.message
-    });
-  }
-};
+//     res.json({
+//       message: 'Domain published successfully',
+//       publishedUrl
+//     });
+//   } catch (error) {
+//     console.error('Publish domain error:', error);
+//     res.status(500).json({
+//       message: 'Failed to publish domain',
+//       error: error.message
+//     });
+//   }
+// };
 
-// Unpublish Domain
-const unpublishDomain = async (req, res) => {
-  try {
-    const domainId = req.params.id;
-    const userId = req.user.userId;
+// Unpublish Domain - NOT USED IN FRONTEND
+// const unpublishDomain = async (req, res) => {
+//   try {
+//     const domainId = req.params.id;
+//     const userId = req.user.userId;
 
-    const updatedDomain = await Domain.findOneAndUpdate(
-      { _id: domainId, userId },
-      {
-        publishedUrl: null,
-        isPublished: false,
-        updatedAt: Date.now()
-      },
-      { new: true }
-    );
+//     const updatedDomain = await Domain.findOneAndUpdate(
+//       { _id: domainId, userId },
+//       {
+//         publishedUrl: null,
+//         isPublished: false,
+//         updatedAt: Date.now()
+//       },
+//       { new: true }
+//     );
 
-    if (!updatedDomain) {
-      return res.status(404).json({
-        message: 'Domain not found'
-      });
-    }
+//     if (!updatedDomain) {
+//       return res.status(404).json({
+//         message: 'Domain not found'
+//       });
+//     }
 
-    res.json({
-      message: 'Domain unpublished successfully'
-    });
-  } catch (error) {
-    console.error('Unpublish domain error:', error);
-    res.status(500).json({
-      message: 'Failed to unpublish domain',
-      error: error.message
-    });
-  }
-};
+//     res.json({
+//       message: 'Domain unpublished successfully'
+//     });
+//   } catch (error) {
+//     console.error('Unpublish domain error:', error);
+//     res.status(500).json({
+//       message: 'Failed to unpublish domain',
+//       error: error.message
+//     });
+//   }
+// };
 
 // Check Subdomain Availability
 const checkSubdomain = async (req, res) => {
@@ -366,20 +393,7 @@ const checkCustomDomain = async (req, res) => {
       });
     }
 
-    // Check if custom domain is already taken in domains collection
-    const existingDomain = await Domain.findOne({ 
-      customDomain: { $in: domainVariations }
-    });
-    
-    if (existingDomain) {
-      console.log('❌ Custom domain already taken by domain:', existingDomain._id);
-      return res.json({
-        available: false,
-        message: `This domain (or its www/non-www version) is already in use by another website`,
-        conflictingDomain: existingDomain.customDomain,
-        conflictingDomainId: existingDomain._id
-      });
-    }
+    // Note: Only checking websites collection now, no separate domains collection
 
     console.log('✅ Custom domain is available');
     return res.json({
@@ -397,39 +411,39 @@ const checkCustomDomain = async (req, res) => {
   }
 };
 
-// Delete Domain
-const deleteDomain = async (req, res) => {
-  try {
-    const domainId = req.params.id;
-    const userId = req.user.userId;
+// Delete Domain - NOT USED IN FRONTEND
+// const deleteDomain = async (req, res) => {
+//   try {
+//     const domainId = req.params.id;
+//     const userId = req.user.userId;
 
-    const deletedDomain = await Domain.findOneAndDelete({ _id: domainId, userId });
+//     const deletedDomain = await Domain.findOneAndDelete({ _id: domainId, userId });
     
-    if (!deletedDomain) {
-      return res.status(404).json({
-        message: 'Domain not found'
-      });
-    }
+//     if (!deletedDomain) {
+//       return res.status(404).json({
+//         message: 'Domain not found'
+//       });
+//     }
 
-    res.json({
-      message: 'Domain deleted successfully'
-    });
-  } catch (error) {
-    console.error('Delete domain error:', error);
-    res.status(500).json({
-      message: 'Failed to delete domain',
-      error: error.message
-    });
-  }
-};
+//     res.json({
+//       message: 'Domain deleted successfully'
+//     });
+//   } catch (error) {
+//     console.error('Delete domain error:', error);
+//     res.status(500).json({
+//       message: 'Failed to delete domain',
+//       error: error.message
+//     });
+//   }
+// };
 
 module.exports = {
   saveDomain,
   getDomains,
   updateDomain,
-  publishDomain,
-  unpublishDomain,
+  // publishDomain,    // NOT USED IN FRONTEND
+  // unpublishDomain,  // NOT USED IN FRONTEND
   checkSubdomain,
   checkCustomDomain,
-  deleteDomain
+  // deleteDomain      // NOT USED IN FRONTEND
 };

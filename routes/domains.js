@@ -5,11 +5,11 @@ const {
   saveDomain, 
   getDomains, 
   updateDomain, 
-  publishDomain, 
-  unpublishDomain, 
+  // publishDomain,    // NOT USED IN FRONTEND
+  // unpublishDomain,  // NOT USED IN FRONTEND
   checkSubdomain, 
   checkCustomDomain,
-  deleteDomain 
+  // deleteDomain      // NOT USED IN FRONTEND
 } = require('../controllers/domainController');
 
 // Save Domain
@@ -21,11 +21,11 @@ router.get('/', authenticateToken, getDomains);
 // Update Domain
 router.put('/:id', authenticateToken, updateDomain);
 
-// Publish Domain
-router.post('/:id/publish', authenticateToken, publishDomain);
+// Publish Domain - NOT USED IN FRONTEND
+// router.post('/:id/publish', authenticateToken, publishDomain);
 
-// Unpublish Domain
-router.post('/:id/unpublish', authenticateToken, unpublishDomain);
+// Unpublish Domain - NOT USED IN FRONTEND
+// router.post('/:id/unpublish', authenticateToken, unpublishDomain);
 
 // Check Subdomain Availability
 router.get('/check-subdomain/:subdomain', authenticateToken, checkSubdomain);
@@ -33,7 +33,7 @@ router.get('/check-subdomain/:subdomain', authenticateToken, checkSubdomain);
 // Check Custom Domain Availability
 router.get('/check-custom-domain/:domain', authenticateToken, checkCustomDomain);
 
-// Delete Domain
-router.delete('/:id', authenticateToken, deleteDomain);
+// Delete Domain - NOT USED IN FRONTEND
+// router.delete('/:id', authenticateToken, deleteDomain);
 
 module.exports = router;

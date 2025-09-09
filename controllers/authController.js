@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const { JWT_SECRET } = require('../config/config');
+const msg91Service = require('../services/msg91Service');
 
 // Register User
 const register = async (req, res) => {
@@ -14,7 +15,7 @@ const register = async (req, res) => {
 
     if (existingUser) {
       return res.status(400).json({ 
-        message: 'User with this email already exists' 
+        message: 'An account with this email already exists. Please try logging in instead.' 
       });
     }
 
@@ -29,6 +30,20 @@ const register = async (req, res) => {
     });
 
     await user.save();
+
+    // Send welcome email
+    try {
+      console.log('📧 Sending welcome email to:', email);
+      const emailResult = await msg91Service.sendWelcomeEmail(email, fullName);
+      if (emailResult.success) {
+        console.log('✅ Welcome email sent successfully to:', email);
+      } else {
+        console.log('⚠️ Welcome email failed to send to:', email, emailResult.error);
+      }
+    } catch (emailError) {
+      console.error('❌ Error sending welcome email:', emailError);
+      // Don't fail registration if email fails
+    }
 
     const token = jwt.sign(
       { userId: user._id, phone: user.phone },
@@ -61,12 +76,16 @@ const login = async (req, res) => {
     // MongoDB storage only
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(400).json({ 
+        message: 'User does not exist. Please check your email or register first.' 
+      });
     }
 
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(400).json({ 
+        message: 'Incorrect password. Please try again.' 
+      });
     }
 
     const token = jwt.sign(
@@ -184,7 +203,7 @@ const forgotPassword = async (req, res) => {
       console.log('✅ Verified saved token:', savedUser.resetToken);
     } catch (saveError) {
       console.error('❌ Failed to save reset token to MongoDB:', saveError);
-      return res.status(500).json({ message: 'Failed to save reset token' });
+      return res.status(500).json({ message: 'Unable to process password reset request. Please try again.' });
     }
     console.log('💾 Stored reset token for user ID:', user._id);
 
@@ -217,7 +236,7 @@ const validateResetToken = async (req, res) => {
     
     if (!user) {
       console.log('❌ No user found with this reset token');
-      return res.status(400).json({ message: 'Invalid reset token' });
+      return res.status(400).json({ message: 'Invalid or expired reset link. Please request a new password reset.' });
     }
 
     // Check if token is expired
@@ -242,7 +261,7 @@ const resetPasswordWithToken = async (req, res) => {
     // MongoDB storage only
     const user = await User.findOne({ resetToken: token });
     if (!user) {
-      return res.status(400).json({ message: 'Invalid reset token' });
+      return res.status(400).json({ message: 'Invalid or expired reset link. Please request a new password reset.' });
     }
 
     // Check if token is expired
