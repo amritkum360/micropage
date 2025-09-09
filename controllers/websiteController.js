@@ -1,8 +1,8 @@
 const Website = require('../models/Website');
 const dns = require('dns').promises;
 
-// Import Vercel service for automatic domain management
-const vercelService = require('../services/vercelService');
+// Vercel service removed for VPS setup
+// const vercelService = require('../services/vercelService');
 
 // Save Website
 const saveWebsite = async (req, res) => {
@@ -170,48 +170,13 @@ const updateWebsite = async (req, res) => {
     console.log('✅ UpdateWebsite - Updated website data:', JSON.stringify(website.data, null, 2));
     console.log('✅ UpdateWebsite - Custom Domain after update:', website.data?.customDomain);
 
-    // Check if customDomain was added and add it to Vercel
-    let vercelResult = null;
-    if (data?.customDomain && data.customDomain !== currentWebsite?.data?.customDomain) {
-      console.log('🔧 UpdateWebsite: Custom domain was added, checking Vercel configuration...');
-      console.log('🔧 Vercel configured:', vercelService.isConfigured());
-      console.log('🔧 Config status:', vercelService.getConfigStatus());
-      
-      if (vercelService.isConfigured()) {
-        console.log('🌐 UpdateWebsite: Adding domain to Vercel project...');
-        try {
-          vercelResult = await vercelService.addCustomDomain(data.customDomain);
-          console.log('🔧 Vercel result:', vercelResult);
-          
-          if (vercelResult.success) {
-            console.log('✅ UpdateWebsite: Domain added to Vercel successfully');
-          } else {
-            console.warn('⚠️ UpdateWebsite: Failed to add domain to Vercel:', vercelResult.error);
-            // Don't fail the request if Vercel fails, just log the warning
-          }
-        } catch (vercelError) {
-          console.error('❌ UpdateWebsite: Vercel API error:', vercelError);
-          vercelResult = {
-            success: false,
-            error: vercelError.message,
-            domain: data.customDomain
-          };
-        }
-      } else {
-        console.log('⚠️ UpdateWebsite: Vercel service not configured, skipping automatic domain addition');
-        console.log('⚠️ Missing environment variables: VERCEL_API_TOKEN, VERCEL_PROJECT_ID');
-      }
-    }
+    // Vercel integration removed for VPS setup
+    // Custom domains are now handled directly by Nginx and the backend
+    console.log('✅ UpdateWebsite: Custom domain updated for VPS setup');
 
     res.json({
       message: 'Website updated successfully',
-      website,
-      vercel: vercelResult ? {
-        success: vercelResult.success,
-        status: vercelResult.status,
-        verification: vercelResult.verification,
-        error: vercelResult.error
-      } : null
+      website
     });
 
   } catch (error) {
@@ -376,7 +341,8 @@ const getPublishedWebsite = async (req, res) => {
   }
 };
 
-// Check DNS configuration for custom domain
+// DNS checking removed for VPS setup
+// For VPS, users need to point their domain's A record to the VPS IP
 const checkDomainDNS = async (req, res) => {
   try {
     const { domain } = req.params;
@@ -385,42 +351,14 @@ const checkDomainDNS = async (req, res) => {
       return res.status(400).json({ message: 'Domain is required' });
     }
 
-    // Check if domain resolves to Vercel nameservers
-    // Support both legacy and current Vercel NS hostnames
-    const expectedNameservers = [
-      'ns1.vercel-dns.com',
-      'ns2.vercel-dns.com'
-    ];
-    let dnsStatus = {
-      configured: false,
-      nameservers: [],
-      message: ''
-    };
-
-    try {
-      // Get nameservers for the domain
-      const nameservers = await dns.resolveNs(domain);
-      dnsStatus.nameservers = nameservers;
-      
-      // Check if any of the expected nameservers are present
-      const lowerNameservers = nameservers.map(ns => ns.toLowerCase());
-      const hasVercelNS = expectedNameservers.some(expected =>
-        lowerNameservers.some(ns => ns.includes(expected.toLowerCase()))
-      );
-      
-      dnsStatus.configured = hasVercelNS;
-      dnsStatus.message = hasVercelNS 
-        ? 'Domain is properly configured with Vercel nameservers'
-        : 'Domain is not configured with Vercel nameservers';
-        
-    } catch (dnsError) {
-      dnsStatus.message = 'Unable to resolve domain nameservers';
-      console.error('DNS resolution error:', dnsError);
-    }
-
+    // For VPS setup, we just return a simple message
+    // Users need to configure their domain's A record to point to the VPS IP
     res.json({
       domain,
-      dnsStatus
+      dnsStatus: {
+        configured: false,
+        message: 'For VPS setup, please configure your domain\'s A record to point to your VPS IP address. DNS propagation may take up to 24 hours.'
+      }
     });
     
   } catch (error) {
@@ -594,47 +532,14 @@ const setCustomDomain = async (req, res) => {
       });
     }
 
-    // Add domain to Vercel project automatically
-    let vercelResult = null;
-    console.log('🔧 Backend: Checking Vercel configuration...');
-    console.log('🔧 Vercel configured:', vercelService.isConfigured());
-    console.log('🔧 Config status:', vercelService.getConfigStatus());
-    
-    if (vercelService.isConfigured()) {
-      console.log('🌐 Backend: Adding domain to Vercel project...');
-      try {
-        vercelResult = await vercelService.addCustomDomain(customDomain);
-        console.log('🔧 Vercel result:', vercelResult);
-        
-        if (vercelResult.success) {
-          console.log('✅ Backend: Domain added to Vercel successfully');
-        } else {
-          console.warn('⚠️ Backend: Failed to add domain to Vercel:', vercelResult.error);
-          // Don't fail the request if Vercel fails, just log the warning
-        }
-      } catch (vercelError) {
-        console.error('❌ Backend: Vercel API error:', vercelError);
-        vercelResult = {
-          success: false,
-          error: vercelError.message,
-          domain: customDomain
-        };
-      }
-    } else {
-      console.log('⚠️ Backend: Vercel service not configured, skipping automatic domain addition');
-      console.log('⚠️ Missing environment variables: VERCEL_API_TOKEN, VERCEL_PROJECT_ID');
-    }
+    // Vercel integration removed for VPS setup
+    // Custom domains are now handled directly by Nginx and the backend
+    console.log('✅ Backend: Custom domain set for VPS setup');
 
     console.log('✅ Backend: Custom domain set successfully');
     res.json({
       message: 'Custom domain set successfully',
-      website,
-      vercel: vercelResult ? {
-        success: vercelResult.success,
-        status: vercelResult.status,
-        verification: vercelResult.verification,
-        error: vercelResult.error
-      } : null
+      website
     });
 
   } catch (error) {
@@ -675,30 +580,14 @@ const removeCustomDomain = async (req, res) => {
       { new: true }
     );
 
-    // Remove domain from Vercel project automatically
-    let vercelResult = null;
-    if (domainToRemove && vercelService.isConfigured()) {
-      console.log('🌐 Backend: Removing domain from Vercel project...');
-      vercelResult = await vercelService.removeCustomDomain(domainToRemove);
-      
-      if (vercelResult.success) {
-        console.log('✅ Backend: Domain removed from Vercel successfully');
-      } else {
-        console.warn('⚠️ Backend: Failed to remove domain from Vercel:', vercelResult.error);
-        // Don't fail the request if Vercel fails, just log the warning
-      }
-    } else if (domainToRemove) {
-      console.log('⚠️ Backend: Vercel service not configured, skipping automatic domain removal');
-    }
+    // Vercel integration removed for VPS setup
+    // Custom domains are now handled directly by Nginx and the backend
+    console.log('✅ Backend: Custom domain removed for VPS setup');
 
     console.log('✅ Backend: Custom domain removed successfully');
     res.json({
       message: 'Custom domain removed successfully',
-      website,
-      vercel: vercelResult ? {
-        success: vercelResult.success,
-        error: vercelResult.error
-      } : null
+      website
     });
 
   } catch (error) {

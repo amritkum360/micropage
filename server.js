@@ -509,9 +509,122 @@ app.get('/api/debug/payments', async (req, res) => {
   }
 });
 
-// Serve React app for any other routes
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+// Custom domain catch-all handler for VPS setup
+app.get('*', async (req, res) => {
+  try {
+    // Get the hostname from the request
+    const hostname = req.get('host');
+    console.log('🌐 Catch-all route - Hostname:', hostname);
+    
+    // Skip if it's the main domain or localhost
+    if (hostname === 'aboutwebsite.in' || 
+        hostname === 'www.aboutwebsite.in' || 
+        hostname === 'localhost' || 
+        hostname.startsWith('localhost:')) {
+      console.log('🏠 Main domain request, serving React app');
+      return res.sendFile(path.join(__dirname, '../public/index.html'));
+    }
+    
+    // This is a custom domain request - find the website
+    console.log('🔍 Custom domain request for:', hostname);
+    
+    const Website = require('./models/Website');
+    
+    // Find website by custom domain (handle both www and non-www versions)
+    let website = await Website.findOne({
+      'data.customDomain': hostname,
+      isPublished: true
+    });
+    
+    // If not found and domain starts with www, try without www
+    if (!website && hostname.startsWith('www.')) {
+      const domainWithoutWww = hostname.substring(4);
+      website = await Website.findOne({
+        'data.customDomain': domainWithoutWww,
+        isPublished: true
+      });
+    }
+    
+    // If not found and domain doesn't start with www, try with www
+    if (!website && !hostname.startsWith('www.')) {
+      const domainWithWww = `www.${hostname}`;
+      website = await Website.findOne({
+        'data.customDomain': domainWithWww,
+        isPublished: true
+      });
+    }
+    
+    if (website) {
+      console.log('✅ Found website for custom domain:', hostname);
+      
+      // Check if user has active subscription
+      const Subscription = require('./models/Subscription');
+      const subscription = await Subscription.findOne({
+        userId: website.userId,
+        status: 'active'
+      });
+      
+      if (!subscription) {
+        console.log('❌ No active subscription for website:', website._id);
+        return res.status(403).send(`
+          <html>
+            <head><title>Website Unavailable</title></head>
+            <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+              <h1>Website Temporarily Unavailable</h1>
+              <p>This website is currently unavailable due to an expired subscription.</p>
+              <p>Please contact the website owner.</p>
+            </body>
+          </html>
+        `);
+      }
+      
+      // Check if subscription has expired
+      const now = new Date();
+      const expiryDate = new Date(subscription.expiresAt);
+      
+      if (now > expiryDate) {
+        console.log('❌ Subscription expired for website:', website._id);
+        return res.status(403).send(`
+          <html>
+            <head><title>Website Unavailable</title></head>
+            <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+              <h1>Website Temporarily Unavailable</h1>
+              <p>This website is currently unavailable due to an expired subscription.</p>
+              <p>Please contact the website owner.</p>
+            </body>
+          </html>
+        `);
+      }
+      
+      // Return the website data as JSON for the frontend to render
+      return res.json(website);
+    } else {
+      console.log('❌ No website found for custom domain:', hostname);
+      return res.status(404).send(`
+        <html>
+          <head><title>Website Not Found</title></head>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h1>Website Not Found</h1>
+            <p>The website for <strong>${hostname}</strong> could not be found.</p>
+            <p>Please check the domain configuration or contact the website owner.</p>
+          </body>
+        </html>
+      `);
+    }
+    
+  } catch (error) {
+    console.error('❌ Error in catch-all route:', error);
+    return res.status(500).send(`
+      <html>
+        <head><title>Server Error</title></head>
+        <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+          <h1>Server Error</h1>
+          <p>An error occurred while loading the website.</p>
+          <p>Please try again later.</p>
+        </body>
+      </html>
+    `);
+  }
 });
 
 app.listen(PORT, () => {
