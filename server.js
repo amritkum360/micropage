@@ -18,7 +18,9 @@ const websiteRoutes = require('./routes/websites');
 const subscriptionRoutes = require('./routes/subscriptions');
 const domainRoutes = require('./routes/domains');
 const aiRoutes = require('./routes/ai');
-const vercelRoutes = require('./routes/vercel');
+const domainManagerRoutes = require('./routes/domain-manager');
+// Vercel routes removed for VPS setup
+// const vercelRoutes = require('./routes/vercel');
 
 
 const app = express();
@@ -447,7 +449,9 @@ app.use('/api/websites', websiteRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/domains', domainRoutes);
 app.use('/api/ai', aiRoutes);
-app.use('/api/vercel', vercelRoutes);
+app.use('/api/domain-manager', domainManagerRoutes);
+// Vercel routes removed for VPS setup
+// app.use('/api/vercel', vercelRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
