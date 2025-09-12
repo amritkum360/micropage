@@ -341,8 +341,7 @@ const getPublishedWebsite = async (req, res) => {
   }
 };
 
-// DNS checking removed for VPS setup
-// For VPS, users need to point their domain's A record to the VPS IP
+// Check Domain DNS Configuration for VPS setup
 const checkDomainDNS = async (req, res) => {
   try {
     const { domain } = req.params;
@@ -351,19 +350,86 @@ const checkDomainDNS = async (req, res) => {
       return res.status(400).json({ message: 'Domain is required' });
     }
 
-    // For VPS setup, we just return a simple message
-    // Users need to configure their domain's A record to point to the VPS IP
+    console.log(`🔍 Checking DNS for domain: ${domain}`);
+
+    const dnsStatus = {
+      configured: false,
+      message: '',
+      details: {
+        aRecord: { found: false, value: null },
+        cnameRecord: { found: false, value: null }
+      }
+    };
+
+    try {
+      // Check A record for the domain
+      const aRecords = await dns.resolve4(domain);
+      console.log(`📊 A records for ${domain}:`, aRecords);
+      
+      // Check if any A record points to our VPS IP
+      const vpsIP = '147.93.30.162';
+      const correctARecord = aRecords.includes(vpsIP);
+      
+      dnsStatus.details.aRecord = {
+        found: aRecords.length > 0,
+        value: aRecords[0] || null,
+        correct: correctARecord
+      };
+
+      // Check CNAME record for www subdomain
+      try {
+        const wwwDomain = `www.${domain}`;
+        const cnameRecords = await dns.resolveCname(wwwDomain);
+        console.log(`📊 CNAME records for ${wwwDomain}:`, cnameRecords);
+        
+        dnsStatus.details.cnameRecord = {
+          found: cnameRecords.length > 0,
+          value: cnameRecords[0] || null,
+          correct: cnameRecords.includes(domain)
+        };
+      } catch (cnameError) {
+        console.log(`ℹ️ No CNAME record found for www.${domain} (this is optional)`);
+        dnsStatus.details.cnameRecord = {
+          found: false,
+          value: null,
+          correct: false
+        };
+      }
+
+      // Determine overall configuration status
+      if (correctARecord) {
+        dnsStatus.configured = true;
+        dnsStatus.message = '✅ DNS configured correctly! Your domain is pointing to the right server.';
+      } else if (aRecords.length > 0) {
+        dnsStatus.configured = false;
+        dnsStatus.message = `❌ A record found but pointing to wrong IP (${aRecords[0]}). Should point to ${vpsIP}`;
+      } else {
+        dnsStatus.configured = false;
+        dnsStatus.message = `❌ No A record found. Please add A record pointing to ${vpsIP}`;
+      }
+
+    } catch (dnsError) {
+      console.log(`❌ DNS lookup failed for ${domain}:`, dnsError.message);
+      dnsStatus.configured = false;
+      dnsStatus.message = `❌ DNS lookup failed: ${dnsError.message}. Please check if domain exists and DNS is configured.`;
+    }
+
+    console.log(`📋 DNS Status for ${domain}:`, dnsStatus);
+
     res.json({
       domain,
-      dnsStatus: {
-        configured: false,
-        message: 'For VPS setup, please configure your domain\'s A record to point to your VPS IP address. DNS propagation may take up to 24 hours.'
-      }
+      dnsStatus
     });
     
   } catch (error) {
     console.error('Check domain DNS error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ 
+      message: 'Server error',
+      dnsStatus: {
+        configured: false,
+        message: 'Failed to check DNS configuration'
+      }
+    });
   }
 };
 

@@ -1,3 +1,4 @@
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -19,6 +20,7 @@ const subscriptionRoutes = require('./routes/subscriptions');
 const domainRoutes = require('./routes/domains');
 const aiRoutes = require('./routes/ai');
 const domainManagerRoutes = require('./routes/domain-manager');
+const sslRoutes = require('./routes/ssl');
 // Vercel routes removed for VPS setup
 // const vercelRoutes = require('./routes/vercel');
 
@@ -114,6 +116,14 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
     res.status(500).json({ message: 'File upload failed' });
   }
 });
+
+
+
+//rendertemplate 
+
+// Add this function to backend server.js
+
+
 
 // Razorpay Payment Routes
 
@@ -450,6 +460,7 @@ app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/domains', domainRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/domain-manager', domainManagerRoutes);
+app.use('/api/ssl', sslRoutes);
 // Vercel routes removed for VPS setup
 // app.use('/api/vercel', vercelRoutes);
 
@@ -521,13 +532,14 @@ app.get('*', async (req, res) => {
     console.log('🌐 Catch-all route - Hostname:', hostname);
     
     // Skip if it's the main domain or localhost
-    if (hostname === 'aboutwebsite.in' || 
-        hostname === 'www.aboutwebsite.in' || 
-        hostname === 'localhost' || 
-        hostname.startsWith('localhost:')) {
-      console.log('🏠 Main domain request, serving React app');
-      return res.sendFile(path.join(__dirname, '../public/index.html'));
-    }
+    // Skip if it's the main domain or localhost - let nginx handle it
+if (hostname === 'aboutwebsite.in' ||
+    hostname === 'www.aboutwebsite.in' ||
+    hostname === 'localhost' ||
+    hostname.startsWith('localhost:')) {
+  console.log('🏠 Main domain request, skipping - nginx will handle');
+  return res.status(404).send('Main domain handled by nginx');
+}
     
     // This is a custom domain request - find the website
     console.log('🔍 Custom domain request for:', hostname);
@@ -601,7 +613,8 @@ app.get('*', async (req, res) => {
       }
       
       // Return the website data as JSON for the frontend to render
-      return res.json(website);
+      // Render the website using template
+  return res.json(website);
     } else {
       console.log('❌ No website found for custom domain:', hostname);
       return res.status(404).send(`
