@@ -31,18 +31,20 @@ const register = async (req, res) => {
 
     await user.save();
 
-    // Send welcome email
+    // Send welcome email via MSG91
     try {
-      console.log('📧 Sending welcome email to:', email);
+      console.log('📧 Sending welcome email via MSG91 to:', email);
       const emailResult = await msg91Service.sendWelcomeEmail(email, fullName);
       if (emailResult.success) {
-        console.log('✅ Welcome email sent successfully to:', email);
+        console.log('✅ Welcome email sent successfully via MSG91 to:', email);
+        console.log('📧 Email ID:', emailResult.data?.data?.unique_id);
       } else {
-        console.log('⚠️ Welcome email failed to send to:', email, emailResult.error);
+        console.log('⚠️ Welcome email failed to send via MSG91 to:', email);
+        console.log('❌ Error details:', emailResult.error);
       }
     } catch (emailError) {
-      console.error('❌ Error sending welcome email:', emailError);
-      // Don't fail registration if email fails
+      console.error('❌ Error sending welcome email via MSG91:', emailError);
+      // Don't fail registration if email fails - user can still use the platform
     }
 
     const token = jwt.sign(

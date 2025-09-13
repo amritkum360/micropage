@@ -75,15 +75,10 @@ Return ONLY a valid JSON object with this exact structure:
       parsedContent = JSON.parse(aiContent);
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
-      // Fallback content
-      parsedContent = {
-        tagline: `Welcome to ${businessDescription.split(' ')[0]}`,
-        heroTitle: `Welcome to ${businessDescription.split(' ')[0]}`,
-        heroSubtitle: 'Professional Solutions for Your Needs',
-        heroDescription: businessDescription,
-        aboutTitle: 'About Us',
-        aboutDescription: businessDescription
-      };
+      return res.status(500).json({
+        message: 'AI content generation failed - Invalid response format',
+        error: 'Please try again or contact support'
+      });
     }
 
     console.log('✅ AI Content Generated Successfully');
@@ -147,87 +142,20 @@ Return ONLY a valid JSON object with this exact structure:
     
          // Smart content generation based on business type
      const generateSmartContent = (description, name) => {
-       const text = description.toLowerCase();
-       
-       // Detect business type
-       let businessType = 'business';
-       let tagline = `${name} - Your Trusted Partner`;
-       let subtitle = 'Professional Solutions for Your Needs';
-       
-       if (text.includes('poultry') || text.includes('feed') || text.includes('chicken') || text.includes('starter') || text.includes('finisher')) {
-         businessType = 'poultry';
-         tagline = `${name} - Premium Poultry Solutions`;
-         subtitle = 'Quality Feed & Expert Care';
-       } else if (text.includes('student') || text.includes('bca') || text.includes('portfolio') || text.includes('developer')) {
-         businessType = 'portfolio';
-         tagline = `${name} - Developer & Student`;
-         subtitle = 'Building Tomorrow\'s Digital Solutions';
-       } else if (text.includes('shop') || text.includes('store') || text.includes('retail')) {
-         businessType = 'retail';
-         tagline = `${name} - Your Shopping Destination`;
-         subtitle = 'Quality Products & Great Service';
-       } else if (text.includes('restaurant') || text.includes('food') || text.includes('cafe')) {
-         businessType = 'food';
-         tagline = `${name} - Delicious Food & Great Service`;
-         subtitle = 'Taste the Difference';
-       }
-       
-       return { businessType, tagline, subtitle };
+       return {
+         businessType: 'business',
+         tagline: name,
+         subtitle: ''
+       };
      };
     
     const smartContent = generateSmartContent(businessDescription, businessName);
     
-         // Enhanced fallback content when OpenAI API is not available
-     const generateSmartFallback = (description, name) => {
-       const text = description.toLowerCase();
-       
-       // Detect business type and generate appropriate content
-       if (text.includes('doctor') || text.includes('mbbs') || text.includes('medical') || text.includes('surgeon') || text.includes('aiims')) {
-         return {
-           tagline: `${name} - Expert Medical Care`,
-           heroTitle: `${name} - Professional Medical Services`,
-           heroSubtitle: 'Trusted Healthcare from AIIMS Graduate',
-           heroDescription: `As a qualified MBBS doctor from AIIMS Patna, I provide comprehensive medical care and surgical services. My expertise ensures the highest quality treatment for all patients.`,
-           aboutTitle: `About Dr. ${name}`,
-           aboutDescription: `Dr. ${name} is a qualified MBBS doctor with advanced training from AIIMS Patna. With years of medical experience, I am committed to providing exceptional healthcare services and surgical expertise to all patients.`
-         };
-       } else if (text.includes('poultry') || text.includes('feed') || text.includes('chicken')) {
-         return {
-           tagline: `${name} - Premium Poultry Solutions`,
-           heroTitle: `${name} - Quality Poultry Feed`,
-           heroSubtitle: 'Expert Nutrition for Healthy Growth',
-           heroDescription: `We specialize in premium poultry feed solutions including starter, pre-starter, and finisher feeds. Our products ensure healthy growth and maximum productivity for your poultry business.`,
-           aboutTitle: `About ${name}`,
-           aboutDescription: `With years of experience in poultry nutrition, we provide high-quality feed products that meet the specific needs of different growth stages. Our commitment to quality ensures your poultry thrives.`
-         };
-       } else if (text.includes('student') || text.includes('bca') || text.includes('portfolio') || text.includes('developer')) {
-         return {
-           tagline: `${name} - Developer & Student`,
-           heroTitle: `${name} - Digital Solutions`,
-           heroSubtitle: 'Building Tomorrow\'s Technology',
-           heroDescription: `I'm a passionate developer and student creating innovative digital solutions. With hands-on experience in various projects, I bring fresh ideas and technical expertise to every challenge.`,
-           aboutTitle: `About ${name}`,
-           aboutDescription: `As a BCA student with practical project experience, I combine academic knowledge with real-world application. I'm dedicated to continuous learning and delivering quality solutions.`
-         };
-       } else {
-         return {
-           tagline: `${name} - Your Trusted Partner`,
-           heroTitle: `Welcome to ${name}`,
-           heroSubtitle: 'Professional Solutions for Your Needs',
-           heroDescription: `We provide exceptional services with years of experience and dedication to customer satisfaction. Our commitment to quality ensures the best results for all our clients.`,
-           aboutTitle: `About ${name}`,
-           aboutDescription: `We are dedicated to providing the best services to our customers with years of experience and expertise. Our team is committed to delivering excellence in everything we do.`
-         };
-       }
-     };
-     
-     const fallbackContent = generateSmartFallback(businessDescription, businessName);
+    console.log('❌ OpenAI API not available - no fallback content');
 
-    console.log('✅ Using fallback content:', fallbackContent);
-
-    res.json({
-      message: 'Content generated successfully (fallback)',
-      content: fallbackContent
+    res.status(500).json({
+      message: 'AI content generation failed - OpenAI API not available',
+      error: 'Please ensure OpenAI API key is configured'
     });
   }
 };
@@ -301,12 +229,10 @@ Return ONLY a valid JSON object with this exact structure:
       parsedContent = JSON.parse(aiContent);
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
-      // Fallback content
-      parsedContent = {
-        title: `Welcome to ${businessDescription.split(' ')[0]}`,
-        subtitle: 'Professional Solutions for Your Needs',
-        description: businessDescription
-      };
+      return res.status(500).json({
+        message: 'AI hero content generation failed - Invalid response format',
+        error: 'Please try again or contact support'
+      });
     }
 
     console.log('✅ AI Hero Content Generated Successfully');
@@ -358,66 +284,18 @@ Return ONLY a valid JSON object with this exact structure:
     
     const businessName = extractBusinessName(businessDescription);
     
-         // Smart content generation based on business type
+         // Simple content generation - no hardcoded content
      const generateSmartContent = (description, name) => {
-       const text = description.toLowerCase();
-       
-       let subtitle = 'Professional Solutions for Your Needs';
-       
-       if (text.includes('poultry') || text.includes('feed') || text.includes('chicken') || text.includes('starter') || text.includes('finisher')) {
-         subtitle = 'Quality Feed & Expert Care';
-       } else if (text.includes('student') || text.includes('bca') || text.includes('portfolio') || text.includes('developer')) {
-         subtitle = 'Building Tomorrow\'s Digital Solutions';
-       } else if (text.includes('shop') || text.includes('store') || text.includes('retail')) {
-         subtitle = 'Quality Products & Great Service';
-       } else if (text.includes('restaurant') || text.includes('food') || text.includes('cafe')) {
-         subtitle = 'Taste the Difference';
-       }
-       
-       return { subtitle };
+       return { subtitle: '' };
      };
     
     const smartContent = generateSmartContent(businessDescription, businessName);
     
-         // Enhanced fallback content when OpenAI API is not available
-     const generateSmartHeroFallback = (description, name) => {
-       const text = description.toLowerCase();
-       
-       // Detect business type and generate appropriate content
-       if (text.includes('doctor') || text.includes('mbbs') || text.includes('medical') || text.includes('surgeon') || text.includes('aiims')) {
-         return {
-           title: `${name} - Professional Medical Services`,
-           subtitle: 'Trusted Healthcare from AIIMS Graduate',
-           description: `As a qualified MBBS doctor from AIIMS Patna, I provide comprehensive medical care and surgical services. My expertise ensures the highest quality treatment for all patients.`
-         };
-       } else if (text.includes('poultry') || text.includes('feed') || text.includes('chicken')) {
-         return {
-           title: `${name} - Quality Poultry Feed`,
-           subtitle: 'Expert Nutrition for Healthy Growth',
-           description: `We specialize in premium poultry feed solutions including starter, pre-starter, and finisher feeds. Our products ensure healthy growth and maximum productivity for your poultry business.`
-         };
-       } else if (text.includes('student') || text.includes('bca') || text.includes('portfolio') || text.includes('developer')) {
-         return {
-           title: `${name} - Digital Solutions`,
-           subtitle: 'Building Tomorrow\'s Technology',
-           description: `I'm a passionate developer and student creating innovative digital solutions. With hands-on experience in various projects, I bring fresh ideas and technical expertise to every challenge.`
-         };
-       } else {
-         return {
-           title: `Welcome to ${name}`,
-           subtitle: 'Professional Solutions for Your Needs',
-           description: `We provide exceptional services with years of experience and dedication to customer satisfaction. Our commitment to quality ensures the best results for all our clients.`
-         };
-       }
-     };
-     
-     const fallbackContent = generateSmartHeroFallback(businessDescription, businessName);
+    console.log('❌ OpenAI API not available - no fallback hero content');
 
-    console.log('✅ Using fallback hero content:', fallbackContent);
-
-    res.json({
-      message: 'Hero content generated successfully (fallback)',
-      content: fallbackContent
+    res.status(500).json({
+      message: 'AI hero content generation failed - OpenAI API not available',
+      error: 'Please ensure OpenAI API key is configured'
     });
   }
 };
