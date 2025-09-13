@@ -58,6 +58,12 @@ const userSchema = new mongoose.Schema({
     aiGeneratedContent: Object,
     selectedTheme: String,
     completedAt: Date
+  },
+  imageLimit: {
+    type: Number,
+    default: 30,
+    min: 1,
+    max: 1000
   }
 });
 

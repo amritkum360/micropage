@@ -13,6 +13,9 @@ const mongoose = require('mongoose');
 const { PORT } = require('./config/config');
 const { connectDB } = require('./config/database');
 
+// Import models
+const User = require('./models/User');
+
 // Import routes
 const authRoutes = require('./routes/auth');
 const websiteRoutes = require('./routes/websites');
@@ -23,6 +26,9 @@ const domainManagerRoutes = require('./routes/domain-manager');
 const sslRoutes = require('./routes/ssl');
 // Vercel routes removed for VPS setup
 // const vercelRoutes = require('./routes/vercel');
+
+// Import middleware
+const { authenticateToken } = require('./middleware/auth');
 
 
 const app = express();
@@ -87,17 +93,74 @@ const upload = multer({
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // File upload route
-app.post('/api/upload', upload.single('image'), (req, res) => {
+app.post('/api/upload', authenticateToken, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
+    // Debug authentication
+    console.log('🔐 Upload route - Authentication debug:', {
+      hasUser: !!req.user,
+      userId: req.user?.userId,
+      userEmail: req.user?.email,
+      userObject: req.user
+    });
+
     // Get user ID for proper path
     const userId = req.user?.userId || 'anonymous';
     
+    // Get user's image limit from database
+    let userImageLimit = 30; // Default limit
+    try {
+      const user = await User.findById(userId);
+      if (user && user.imageLimit) {
+        userImageLimit = user.imageLimit;
+        console.log(`📊 User ${userId} has custom image limit: ${userImageLimit}`);
+      } else {
+        console.log(`📊 User ${userId} using default image limit: ${userImageLimit}`);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching user image limit:', error);
+      // Continue with default limit
+    }
+    
+    const userUploadDir = path.join(__dirname, 'uploads', userId);
+    
+    // Check if user directory exists and count images
+    if (fs.existsSync(userUploadDir)) {
+      const files = fs.readdirSync(userUploadDir);
+      const imageFiles = files.filter(file => {
+        const ext = path.extname(file).toLowerCase();
+        return ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext);
+      });
+      
+      console.log(`📊 User ${userId} has ${imageFiles.length}/${userImageLimit} images`);
+      
+      if (imageFiles.length >= userImageLimit) {
+        // Delete the uploaded file since limit is reached
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ 
+          message: `Image limit reached. You can only upload ${userImageLimit} images. Please delete some images first.`,
+          limit: userImageLimit,
+          current: imageFiles.length
+        });
+      }
+    }
+    
     // Generate public URL for the uploaded file with user folder
-    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${userId}/${req.file.filename}`;
+    const host = req.get('host');
+    const protocol = req.protocol;
+    const fileUrl = `${protocol}://${host}/uploads/${userId}/${req.file.filename}`;
+    
+    console.log('📁 Upload details:', {
+      userId,
+      filename: req.file.filename,
+      host,
+      protocol,
+      fileUrl,
+      filePath: req.file.path
+    });
     
     res.json({
       message: 'File uploaded successfully',
@@ -117,7 +180,161 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
   }
 });
 
+// Get user's uploaded images
+app.get('/api/user-images', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
 
+    console.log('🖼️ Fetching images for user:', userId);
+
+    // Get user's image limit from database
+    let userImageLimit = 30; // Default limit
+    try {
+      const user = await User.findById(userId);
+      if (user && user.imageLimit) {
+        userImageLimit = user.imageLimit;
+        console.log(`📊 User ${userId} has custom image limit: ${userImageLimit}`);
+      } else {
+        console.log(`📊 User ${userId} using default image limit: ${userImageLimit}`);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching user image limit:', error);
+      // Continue with default limit
+    }
+
+    // Get user's upload directory
+    const userUploadDir = path.join(__dirname, 'uploads', userId);
+    
+    // Check if directory exists
+    if (!fs.existsSync(userUploadDir)) {
+      console.log('📁 User upload directory does not exist:', userUploadDir);
+      return res.json({ 
+        images: [],
+        limit: userImageLimit,
+        current: 0
+      });
+    }
+
+    // Read directory contents
+    const files = fs.readdirSync(userUploadDir);
+    console.log('📁 Files in user directory:', files);
+
+    // Filter for image files and create image data
+    const imageFiles = files.filter(file => {
+      const ext = path.extname(file).toLowerCase();
+      return ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'].includes(ext);
+    });
+
+    const images = imageFiles.map(file => {
+      const filePath = path.join(userUploadDir, file);
+      const stats = fs.statSync(filePath);
+      
+      return {
+        filename: file,
+        originalName: file, // We don't store original name separately
+        url: `${req.protocol}://${req.get('host')}/uploads/${userId}/${file}`,
+        fileSize: stats.size,
+        fileType: `image/${path.extname(file).slice(1)}`,
+        uploadDate: stats.mtime,
+        isServerImage: true
+      };
+    });
+
+    // Sort by upload date (newest first)
+    images.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
+
+    console.log(`✅ User images fetched successfully: ${images.length}/${userImageLimit} images`);
+
+    res.json({ 
+      images,
+      count: images.length,
+      userId: userId,
+      limit: userImageLimit,
+      current: images.length
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching user images:', error);
+    res.status(500).json({ 
+      message: 'Failed to fetch images', 
+      error: error.message 
+    });
+  }
+});
+
+// Delete image route
+app.delete('/api/upload/:filename', authenticateToken, (req, res) => {
+  try {
+    const { filename } = req.params;
+    const userId = req.user?.userId || 'anonymous';
+    
+    // Construct file path
+    const filePath = path.join(__dirname, 'uploads', userId, filename);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+    
+    // Delete the file
+    fs.unlinkSync(filePath);
+    
+    console.log(`🗑️ Image deleted: ${filename} for user ${userId}`);
+    
+    res.json({ 
+      message: 'Image deleted successfully',
+      filename: filename
+    });
+  } catch (error) {
+    console.error('Image delete error:', error);
+    res.status(500).json({ message: 'Failed to delete image' });
+  }
+});
+
+// Admin route to update user image limit
+app.put('/api/admin/user/:userId/image-limit', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { imageLimit } = req.body;
+    
+    // Basic validation
+    if (!imageLimit || imageLimit < 1 || imageLimit > 1000) {
+      return res.status(400).json({ 
+        message: 'Image limit must be between 1 and 1000' 
+      });
+    }
+    
+    // Update user's image limit
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { imageLimit: parseInt(imageLimit) },
+      { new: true }
+    );
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    console.log(`📊 Updated image limit for user ${userId}: ${imageLimit}`);
+    
+    res.json({
+      message: 'Image limit updated successfully',
+      userId: userId,
+      imageLimit: user.imageLimit
+    });
+    
+  } catch (error) {
+    console.error('❌ Error updating image limit:', error);
+    res.status(500).json({ 
+      message: 'Failed to update image limit',
+      error: error.message 
+    });
+  }
+});
 
 //rendertemplate 
 
