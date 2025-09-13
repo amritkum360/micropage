@@ -49,8 +49,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, 'uploads');
+// Create uploads directory outside backend folder
+const uploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -89,8 +89,8 @@ const upload = multer({
   }
 });
 
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve uploaded files from separate uploads folder
+app.use('/uploads', express.static(uploadsDir));
 
 // File upload route
 app.post('/api/upload', authenticateToken, upload.single('image'), async (req, res) => {
@@ -125,7 +125,7 @@ app.post('/api/upload', authenticateToken, upload.single('image'), async (req, r
       // Continue with default limit
     }
     
-    const userUploadDir = path.join(__dirname, 'uploads', userId);
+    const userUploadDir = path.join(uploadsDir, userId);
     
     // Check if user directory exists and count images
     if (fs.existsSync(userUploadDir)) {
@@ -207,7 +207,7 @@ app.get('/api/user-images', authenticateToken, async (req, res) => {
     }
 
     // Get user's upload directory
-    const userUploadDir = path.join(__dirname, 'uploads', userId);
+    const userUploadDir = path.join(uploadsDir, userId);
     
     // Check if directory exists
     if (!fs.existsSync(userUploadDir)) {
@@ -273,7 +273,7 @@ app.delete('/api/upload/:filename', authenticateToken, (req, res) => {
     const userId = req.user?.userId || 'anonymous';
     
     // Construct file path
-    const filePath = path.join(__dirname, 'uploads', userId, filename);
+    const filePath = path.join(uploadsDir, userId, filename);
     
     // Check if file exists
     if (!fs.existsSync(filePath)) {
