@@ -1,4 +1,5 @@
 const axios = require('axios');
+require('dotenv').config();
 
 // Generate website content using OpenAI
 const generateContent = async (req, res) => {
