@@ -63,10 +63,9 @@ class MSG91Service {
                 name: userName
               }
             ],
-            variables: {
-              name: userName,
-              reset_link: resetUrl,
-              reset_token: resetToken
+         	variables: {
+              username: userName,
+              resetLink: resetUrl
             }
           }
         ],
@@ -74,7 +73,7 @@ class MSG91Service {
           email: "no-reply@mail.aboutwebsite.in"
         },
         domain: "mail.aboutwebsite.in",
-        template_id: "template_password_reset" // You'll need to create this template in MSG91
+                template_id: "template_13_09_2025_20_09_2"
       };
 
       const response = await axios.post(this.baseUrl, emailData, {

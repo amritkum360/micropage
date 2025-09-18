@@ -209,6 +209,22 @@ const forgotPassword = async (req, res) => {
     }
     console.log('💾 Stored reset token for user ID:', user._id);
 
+ // Send password reset email via MSG91
+    try {
+      console.log('📧 Sending password reset email via MSG91 to:', email);
+      const emailResult = await msg91Service.sendPasswordResetEmail(email, user.fullName, resetToken);
+      if (emailResult.success) {
+        console.log('✅ Password reset email sent successfully via MSG91 to:', email);
+        console.log('📧 Email ID:', emailResult.data?.data?.unique_id);
+      } else {
+        console.log('⚠️ Password reset email failed to send via MSG91 to:', email);
+        console.log('❌ Error details:', emailResult.error);
+        // Still return success to user for security (don't reveal if email exists)
+      }
+    } catch (emailError) {
+      console.error('❌ Error sending password reset email via MSG91:', emailError);
+      // Don't fail the request if email fails - user can still try again
+    }
     // For testing purposes, log the reset URL to console
     const resetUrl = `http://localhost:3000/reset-password?token=${resetToken}`;
     console.log('🔗 Password Reset URL:', resetUrl);
@@ -217,7 +233,7 @@ const forgotPassword = async (req, res) => {
 
     res.json({ 
       message: 'Password reset email sent successfully',
-      resetUrl: resetUrl // Only for testing
+      //resetUrl: resetUrl // Only for testing
     });
   } catch (error) {
     console.error('Forgot password error:', error);
